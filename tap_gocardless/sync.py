@@ -34,7 +34,8 @@ def process_records(catalog,
                     last_datetime=None,
                     last_integer=None,
                     parent=None,
-                    parent_id=None):
+                    parent_id=None,
+                    schemaless=False):
     stream = catalog.get_stream(stream_name)
     schema = stream.schema.to_dict()
     stream_metadata = metadata.to_map(stream.metadata)
@@ -53,24 +54,33 @@ def process_records(catalog,
 
             # Transform record for Singer.io
             with Transformer() as transformer:
-                record = transformer.transform(record,
+                record_transformed = transformer.transform(record,
                                                schema,
                                                stream_metadata)
 
-            if bookmark_field and (bookmark_field in record):
+            if bookmark_field and (bookmark_field in record_transformed):
                 if bookmark_type == 'integer':
                     # Keep only records whose bookmark is after the last_integer
-                    if record[bookmark_field] >= last_integer:
-                        singer.write_record(stream_name, record, time_extracted=time_extracted)
+                    if record_transformed[bookmark_field] >= last_integer:
+                        if schemaless:
+                            singer.write_record(stream_name, record, time_extracted=time_extracted)
+                        else:
+                            singer.write_record(stream_name, record_transformed, time_extracted=time_extracted)
                         counter.increment()
                 elif bookmark_type == 'datetime':
                     # Keep only records whose bookmark is after the last_datetime
-                    if datetime.strptime(record[bookmark_field], "%Y-%m-%dT%H:%M:%S.%fZ") >= \
+                    if datetime.strptime(record_transformed[bookmark_field], "%Y-%m-%dT%H:%M:%S.%fZ") >= \
                         datetime.strptime(last_datetime, "%Y-%m-%dT%H:%M:%S.%fZ"):
-                        singer.write_record(stream_name, record, time_extracted=time_extracted)
+                        if schemaless:
+                            singer.write_record(stream_name, record, time_extracted=time_extracted)
+                        else:
+                            singer.write_record(stream_name, record_transformed, time_extracted=time_extracted)
                         counter.increment()
             else:
-                singer.write_record(stream_name, record, time_extracted=time_extracted)
+                if schemaless:
+                    singer.write_record(stream_name, record, time_extracted=time_extracted)
+                else:
+                    singer.write_record(stream_name, record_transformed, time_extracted=time_extracted)
                 counter.increment()
         return max_bookmark_value, counter.value
 
@@ -90,7 +100,8 @@ def sync_endpoint(client,
                   bookmark_type=None,
                   id_field=None,
                   parent=None,
-                  parent_id=None):
+                  parent_id=None,
+                  schemaless=False):
 
     total_records = 0
     # Get the latest bookmark for the stream and set the last_integer/datetime
@@ -151,7 +162,8 @@ def sync_endpoint(client,
             last_datetime=last_datetime,
             last_integer=last_integer,
             parent=parent,
-            parent_id=parent_id)
+            parent_id=parent_id,
+            schemaless=schemaless)
 
         total_records = total_records + record_count
         children = endpoint_config.get('children')
@@ -182,7 +194,8 @@ def sync_endpoint(client,
                             bookmark_type=child_endpoint_config.get('bookmark_type'),
                             id_field=child_endpoint_config.get('id_field'),
                             parent=child_endpoint_config.get('parent'),
-                            parent_id=parent_id)
+                            parent_id=parent_id,
+                            schemaless=schemaless)
                         LOGGER.info('Synced: {}, parent_id: {}, total_records: {}'.format(
                             child_stream_name,
                             parent_id,
@@ -239,7 +252,7 @@ def should_sync_stream(selected_streams, last_stream, stream_name):
     return False, last_stream
 
 
-def sync(client, catalog, state, start_date):
+def sync(client, catalog, state, start_date, schemaless):
     selected_streams = get_selected_streams(catalog)
     LOGGER.info('selected_streams: {}'.format(selected_streams))
     if not selected_streams:
@@ -321,7 +334,8 @@ def sync(client, catalog, state, start_date):
                 bookmark_query_field=endpoint_config.get('bookmark_query_field'),
                 bookmark_field=endpoint_config.get('bookmark_field'),
                 bookmark_type=endpoint_config.get('bookmark_type'),
-                id_field=endpoint_config.get('id_field'))
+                id_field=endpoint_config.get('id_field'),
+                schemaless=schemaless)
 
             update_currently_syncing(state, None)
             LOGGER.info('Synced: {}, total_records: {}'.format(stream_name, total_records))

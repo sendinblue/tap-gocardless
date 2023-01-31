@@ -7,7 +7,7 @@ from tap_gocardless.client import GocardlessClient
 from tap_gocardless.discover import discover
 from tap_gocardless.sync import sync
 
-REQUIRED_CONFIG_KEYS = ["start_date", "access_token"]
+REQUIRED_CONFIG_KEYS = ["start_date", "access_token", "schemaless"]
 LOGGER = singer.get_logger()
 
 @utils.handle_top_exception(LOGGER)
@@ -28,7 +28,7 @@ def main():
         else:
             catalog = discover()
 
-        sync(client, catalog, args.state, args.config['start_date'])
+        sync(client, catalog, args.state, args.config['start_date'], args.config["schemaless"])
 
 if __name__ == "__main__":
     main()

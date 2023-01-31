@@ -19,7 +19,7 @@ setup(
     tap-gocardless=tap_gocardless:main
     """,
     packages=["tap_gocardless"],
-    package_data = {
+    package_data={
         "schemas": ["tap_gocardless/schemas/*.json"]
     },
     include_package_data=True,

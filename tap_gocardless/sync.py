@@ -63,7 +63,7 @@ def process_records(catalog,
                     # Keep only records whose bookmark is after the last_integer
                     if record_transformed[bookmark_field] >= last_integer:
                         if schemaless:
-                            singer.write_record(stream_name, record, time_extracted=time_extracted)
+                            singer.write_record(stream_name, record)
                         else:
                             singer.write_record(stream_name, record_transformed, time_extracted=time_extracted)
                         counter.increment()
@@ -72,13 +72,13 @@ def process_records(catalog,
                     if datetime.strptime(record_transformed[bookmark_field], "%Y-%m-%dT%H:%M:%S.%fZ") >= \
                         datetime.strptime(last_datetime, "%Y-%m-%dT%H:%M:%S.%fZ"):
                         if schemaless:
-                            singer.write_record(stream_name, record, time_extracted=time_extracted)
+                            singer.write_record(stream_name, record)
                         else:
                             singer.write_record(stream_name, record_transformed, time_extracted=time_extracted)
                         counter.increment()
             else:
                 if schemaless:
-                    singer.write_record(stream_name, record, time_extracted=time_extracted)
+                    singer.write_record(stream_name, record)
                 else:
                     singer.write_record(stream_name, record_transformed, time_extracted=time_extracted)
                 counter.increment()
